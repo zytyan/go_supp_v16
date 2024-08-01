@@ -8,6 +8,14 @@ import (
 	"net/http"
 )
 
+type StatusError struct {
+	Status int
+}
+
+func (e *StatusError) Error() string {
+	return fmt.Sprintf("status code error: %d %s", e.Status, http.StatusText(e.Status))
+}
+
 type Client struct {
 	client   *http.Client
 	Host     string
@@ -44,7 +52,7 @@ func (c *Client) post(path string, body io.Reader) (*http.Response, error) {
 	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		_ = resp.Body.Close()
-		return nil, errors.New(fmt.Sprintf("status code error: %d %s", resp.StatusCode, resp.Status))
+		return nil, &StatusError{Status: resp.StatusCode}
 	}
 	return resp, err
 }
@@ -63,7 +71,6 @@ func (c *Client) Login() error {
 	if err = checkOk(buf); err != nil {
 		return err
 	}
-
 	c.Cookie = resp.Header.Get("Set-Cookie")
 	return nil
 }
