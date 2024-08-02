@@ -6,11 +6,13 @@ import (
 )
 
 type StrNum struct {
-	BaseStr string
-	Slice   string
-	IsNum   bool
+	Slice string
+	IsNum bool
 }
-type Buf []StrNum
+type Buf struct {
+	Chunks []StrNum
+	Raw    string
+}
 
 func compareNum(i, j StrNum) int {
 	if len(i.Slice) > len(j.Slice) {
@@ -34,14 +36,16 @@ func compare(i, j StrNum) int {
 	}
 }
 func compareVec(i, j Buf) int {
-	for idx := 0; idx < len(i) && idx < len(j); idx++ {
-		if ret := compare(i[idx], j[idx]); ret != 0 {
+	left := i.Chunks
+	right := j.Chunks
+	for idx := 0; idx < len(left) && idx < len(right); idx++ {
+		if ret := compare(left[idx], right[idx]); ret != 0 {
 			return ret
 		}
 	}
-	if len(i) > len(j) {
+	if len(left) > len(right) {
 		return 1
-	} else if len(i) < len(j) {
+	} else if len(left) < len(right) {
 		return -1
 	} else {
 		return 0
@@ -53,7 +57,7 @@ func isNum(c byte) bool {
 
 func Split(s string) (ret Buf) {
 	idx := 0
-	ret = make([]StrNum, 0, 4)
+	chunks := make([]StrNum, 0, 8)
 	for idx < len(s) {
 		for idx < len(s) && s[idx] == '0' {
 			idx++
@@ -63,16 +67,18 @@ func Split(s string) (ret Buf) {
 			idx++
 		}
 		if idx > start {
-			ret = append(ret, StrNum{BaseStr: s, Slice: s[start:idx], IsNum: true})
+			chunks = append(chunks, StrNum{Slice: s[start:idx], IsNum: true})
 		}
 		start = idx
 		for idx < len(s) && !isNum(s[idx]) {
 			idx++
 		}
 		if idx > start {
-			ret = append(ret, StrNum{BaseStr: s, Slice: s[start:idx], IsNum: false})
+			chunks = append(chunks, StrNum{Slice: s[start:idx], IsNum: false})
 		}
 	}
+	ret.Chunks = chunks
+	ret.Raw = s
 	return
 }
 
