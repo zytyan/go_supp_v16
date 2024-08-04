@@ -13,6 +13,8 @@ func TestNumCompare(t *testing.T) {
 	as.Equal(compareVec(Split("0"), Split("01")), -1)
 	as.Equal(compareVec(Split("1"), Split("2")), -1)
 	as.Equal(compareVec(Split("1"), Split("002")), -1)
+	as.Equal(compareVec(Split("a"), Split("002")), 1)
+	as.Equal(compareVec(Split("1"), Split("a")), -1)
 }
 
 func TestFullOrder(t *testing.T) {
