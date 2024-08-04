@@ -85,3 +85,16 @@ func Split(s string) (ret Buf) {
 func Sort(v []Buf) {
 	slices.SortFunc(v, compareVec)
 }
+
+func SortedStrings(v []string) []string {
+	bufs := make([]Buf, len(v))
+	for idx, s := range v {
+		bufs[idx] = Split(s)
+	}
+	Sort(bufs)
+	ret := make([]string, len(v))
+	for idx, b := range bufs {
+		ret[idx] = b.Raw
+	}
+	return ret
+}

@@ -34,22 +34,36 @@ func TestFullOrder(t *testing.T) {
 }
 func TestSort(t *testing.T) {
 	as := assert.New(t)
-	buf := []Buf{
-		Split("a01-1"),
-		Split("a01-2"),
-		Split("a01-3"),
-		Split("a01-10"),
-		Split("a01-14"),
-		Split("a01-19"),
-		Split("a01-20"),
-		Split("a01-21"),
-		Split("a01-42"),
-		Split("a01-100"),
-		Split("a02-1"),
-		Split("a02-2"),
-		Split("a02-3"),
-		Split("a02-101"),
-		Split("a02-102"),
+	strings := []string{
+		"a01-1",
+		"a01-2",
+		"a01-3",
+		"a01-10",
+		"a01-14",
+		"a01-19",
+		"a01-20",
+		"a01-21",
+		"a01-42",
+		"a01-100",
+		"a02-1",
+		"a02-2",
+		"a02-3",
+		"a02-101",
+		"a02-102",
+	}
+	stringsCopy := make([]string, len(strings))
+	copy(stringsCopy, strings)
+	rand.Shuffle(len(stringsCopy), func(i, j int) {
+		stringsCopy[i], stringsCopy[j] = stringsCopy[j], stringsCopy[i]
+	})
+	sortedStr := SortedStrings(stringsCopy)
+	as.Equal(strings, sortedStr)
+	sortedStr = SortedStrings(strings)
+	as.Equal(strings, sortedStr)
+
+	buf := make([]Buf, 0, len(strings))
+	for _, s := range strings {
+		buf = append(buf, Split(s))
 	}
 	sameBuf := make([]Buf, len(buf))
 	copy(sameBuf, buf)
