@@ -3,11 +3,14 @@ package main
 import (
 	"fmt"
 	"github.com/PaulSonOfLars/gotgbot/v2"
+	"gorm.io/gorm"
 	"html"
+	"log"
 	"main/crawler"
 	"net/url"
 	"os"
 	"path"
+	"path/filepath"
 	"sync"
 )
 
@@ -19,28 +22,31 @@ type Msg struct {
 }
 
 type Supp struct {
-	Article        *crawler.Article
-	ChannelMsg     Msg
-	LinkedGroupMsg Msg
+	gorm.Model
+	ArticleUrlPath string `gorm:"primaryKey"`
+	ChannelMsg     Msg    `gorm:"embedded,embeddedPrefix:channel_"`
+	LinkedGroupMsg Msg    `gorm:"embedded,embeddedPrefix:linked_group_"`
+	Magnets        []Magnet
+	Status         string
 }
 
 var runningSuppByMsg = make(map[Msg]*Supp)
 var mu sync.Mutex
 
-type SuppConfig struct {
-	ChannelId int64
-	GroupId   int64
-	AdminId   int64
-}
-
-var config SuppConfig
-
-func fileSchema(path string) string {
-	return "file://" + url.PathEscape(path)
+func fileSchema(filename string) string {
+	if !filepath.IsAbs(filename) {
+		var err error
+		filename, err = filepath.Abs(filename)
+		if err != nil {
+			log.Println(err)
+			return ""
+		}
+	}
+	return "file://" + url.QueryEscape(filename)
 }
 
 func prepareSuppMsg(article *crawler.Article) string {
-	return fmt.Sprintf("<a href=\"%s\">%s</a>\n"+
+	return fmt.Sprintf(`<a href="%s">%s</a>\n`+
 		"由 %s 发表于 %s\n"+
 		"分类：%s\n"+
 		"标签：%s\n"+
@@ -55,6 +61,18 @@ func prepareSuppMsg(article *crawler.Article) string {
 }
 
 func SendSuppMsg(article *crawler.Article) error {
+	urlPath := article.UrlPath()
+	if urlPath == "" {
+		return fmt.Errorf("article url path is empty, url is %s", article.Url)
+	}
+	supp := &Supp{ArticleUrlPath: urlPath}
+	if db.Take(&supp).Error == nil {
+		if supp.Status == "done" {
+			return nil
+		}
+		log.Printf("supp %s already exists, status is %s", urlPath, supp.Status)
+		/* TODO: 应该有其他的功能，用于从异常退出时恢复 */
+	}
 	text := prepareSuppMsg(article)
 	ext := path.Ext(article.Url)
 	f, err := os.CreateTemp("", "supp*"+ext)
@@ -85,13 +103,14 @@ func SendSuppMsg(article *crawler.Article) error {
 	supp, ok := runningSuppByMsg[key]
 	if !ok {
 		supp = &Supp{
-			Article:    article,
-			ChannelMsg: Msg{ChatId: msg.Chat.Id, Id: msg.MessageId},
+			ArticleUrlPath: urlPath,
+			ChannelMsg:     Msg{ChatId: msg.Chat.Id, Id: msg.MessageId},
 		}
 		runningSuppByMsg[key] = supp
 	} else {
-		supp.Article = article
+		supp.ArticleUrlPath = urlPath
 		supp.ChannelMsg = Msg{ChatId: msg.Chat.Id, Id: msg.MessageId}
+		db.Save(supp)
 	}
 	return nil
 }
@@ -125,4 +144,5 @@ func OnLinkedGroupMsg(bot *gotgbot.Bot, msg *gotgbot.Message) {
 		return
 	}
 	supp.LinkedGroupMsg = Msg{ChatId: msg.Chat.Id, Id: msg.MessageId}
+	db.Save(supp)
 }

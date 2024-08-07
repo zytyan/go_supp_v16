@@ -6,6 +6,7 @@ import (
 	"github.com/PuerkitoBio/goquery"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"path"
 	"strings"
@@ -14,7 +15,7 @@ import (
 func getHost() string {
 	// read liuli.link file
 	s, err := os.ReadFile("liuli.link")
-	if err != nil {
+	if err != nil || len(s) == 0 {
 		return "www.hacg.mov"
 	}
 	return string(s)
@@ -133,4 +134,12 @@ func (a *Article) DownloadImg() ([]byte, error) {
 		return nil, err
 	}
 	return buf, nil
+}
+
+func (a *Article) UrlPath() string {
+	u, err := url.Parse(a.Url)
+	if err != nil {
+		return ""
+	}
+	return u.Path
 }
