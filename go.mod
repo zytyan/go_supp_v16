@@ -3,6 +3,7 @@ module main
 go 1.22
 
 require (
+	github.com/PaulSonOfLars/gotgbot/v2 v2.0.0-rc.28 // indirect
 	github.com/PuerkitoBio/goquery v1.9.2 // indirect
 	github.com/andybalholm/cascadia v1.3.2 // indirect
 	github.com/celestix/telegraph-go/v2 v2.0.3 // indirect

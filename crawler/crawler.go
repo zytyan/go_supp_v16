@@ -7,6 +7,8 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path"
+	"strings"
 )
 
 func getHost() string {
@@ -53,7 +55,7 @@ type Article struct {
 
 func parseOneArticle(sel *goquery.Selection) (Article, error) {
 	h1 := sel.Find("h1 > a").First()
-	url, ok := h1.Attr("href")
+	articleUrl, ok := h1.Attr("href")
 	if !ok {
 		return Article{}, fmt.Errorf("href not found")
 	}
@@ -62,11 +64,11 @@ func parseOneArticle(sel *goquery.Selection) (Article, error) {
 	postTime := sel.Find("time").Text()
 	imgUrl, _ := sel.Find("img").First().Attr("src")
 	category := sel.Find("span.cat-links > a").Text()
-	tags := sel.Find("span.tags-links > a").Map(func(i int, s *goquery.Selection) string {
+	tags := sel.Find("span.tag-links > a").Map(func(i int, s *goquery.Selection) string {
 		return s.Text()
 	})
 	return Article{
-		Url:      url,
+		Url:      articleUrl,
 		Title:    title,
 		Author:   author,
 		PostTime: postTime,
@@ -91,10 +93,44 @@ func parseHomePageArticles(buf []byte) ([]Article, error) {
 	})
 	return articles, nil
 }
+
 func GetArticles() ([]Article, error) {
 	buf, err := getHomePage()
 	if err != nil {
 		return nil, err
 	}
 	return parseHomePageArticles(buf)
+}
+
+func (a *Article) HashTags() string {
+	tags := make([]string, 0, len(a.Tags))
+	for _, tag := range a.Tags {
+		tags = append(tags, "#"+tag)
+	}
+	return strings.Join(tags, " ")
+}
+
+func (a *Article) IdTag() string {
+	p := path.Base(a.Url)
+	pb := strings.LastIndexByte(p, '.')
+	if pb == -1 {
+		return ""
+	}
+	return "#wp" + p[:pb]
+}
+
+func (a *Article) DownloadImg() ([]byte, error) {
+	resp, err := http.Get(a.ImgUrl)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("status code error: %d %s", resp.StatusCode, resp.Status)
+	}
+	buf, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	return buf, nil
 }
