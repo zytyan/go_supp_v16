@@ -1,4 +1,4 @@
-package telegraph
+package tphup
 
 import (
 	"fmt"

@@ -1,4 +1,4 @@
-package telegraph
+package tphup
 
 import (
 	"bytes"
@@ -86,10 +86,11 @@ func (e LocalError) Error() string {
 func uploadImageList(client *telegraph.TelegraphClient, filenames []string) ([]string, error) {
 	var urls []string
 	expBackoff := backoff.NewExponentialBackOff(
-		backoff.WithInitialInterval(5*time.Second),
-		backoff.WithMaxInterval(10*time.Minute),
+		backoff.WithInitialInterval(60*time.Second),
+		backoff.WithMaxInterval(20*time.Minute),
 		backoff.WithMultiplier(2),
 	)
+mainLoop:
 	for _, filename := range filenames {
 		buf, err := ensureImageCanBeUploaded(filename)
 		if err != nil {
@@ -97,13 +98,17 @@ func uploadImageList(client *telegraph.TelegraphClient, filenames []string) ([]s
 			continue
 		}
 		var url string
-		for {
+		for i := 0; ; i++ {
 			url, err = client.UploadFileByBytes(buf)
 			if err == nil {
 				break
 			}
 			log.Printf("error uploading image %s: %v", filename, err)
 			time.Sleep(expBackoff.NextBackOff())
+			if i > 20 {
+				log.Printf("error uploading image %s: %v, skip upload this image", filename, err)
+				break mainLoop
+			}
 		}
 		expBackoff.Reset()
 		urls = append(urls, url)
@@ -145,10 +150,13 @@ func UploadFolder(client *telegraph.TelegraphClient, accessToken, folder string)
 	if err != nil {
 		return nil, err
 	}
-	ch := make(chan *telegraph.Page)
+	ch := make(chan *telegraph.Page, 8)
 	go func() {
 		defer close(ch)
-		for _, filenames := range chunk {
+		for idx, filenames := range chunk {
+			if len(chunk) > 1 {
+				title = fmt.Sprintf("%s (%d / %d)", title, idx+1, len(chunk))
+			}
 			urls, err := uploadImageList(client, filenames)
 			if err != nil {
 				log.Printf("error uploading image list: %v", err)
