@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"database/sql/driver"
+	"errors"
 	"fmt"
 	"github.com/PaulSonOfLars/gotgbot/v2"
 	"github.com/PaulSonOfLars/gotgbot/v2/ext"
@@ -102,6 +103,7 @@ func startSupp(supp *Supp) {
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Hour)
 	defer cancel()
 	wg := sync.WaitGroup{}
+	errChan := make(chan error, len(supp.Magnets))
 	for idx, hash := range supp.Magnets {
 		log.Printf("start proc magnet[%d] %s\n", idx, hash)
 		wg.Add(1)
@@ -109,12 +111,27 @@ func startSupp(supp *Supp) {
 			defer wg.Done()
 			err := WaitAndProcMagnet(ctx, supp, h)
 			if err != nil {
+				errChan <- err
 				log.Println(err)
 			}
 		}(hash)
 	}
 	wg.Wait()
-	supp.Status = "done"
+	var errGroup error
+Loop:
+	for {
+		select {
+		case e := <-errChan:
+			errGroup = errors.Join(errGroup, e)
+		default:
+			break Loop
+		}
+	}
+	if errGroup != nil {
+		supp.Status = "error"
+	} else {
+		supp.Status = "done"
+	}
 	runningSupp.Remove(supp)
 	log.Printf("supp %s done, current running %d\n", supp.ArticleUrlPath, runningSupp.Size())
 	db.Save(supp)
@@ -167,10 +184,15 @@ func ProcArticle(article *crawler.Article) error {
 	supp := &Supp{ArticleUrlPath: urlPath}
 	err := db.Take(supp).Error
 	if err == nil {
-		if supp.Status != "done" {
-			log.Printf("supp %s not done, current status %s, chnnel id: %d, channel msg id: %d, group id: %d, group msg id: %d\n",
+		switch supp.Status {
+		case "running":
+			log.Printf("supp %s is running, current status %s, chnnel id: %d, channel msg id: %d, group id: %d, group msg id: %d\n",
 				article.Title, supp.Status, supp.ChannelMsg.ChatId, supp.ChannelMsg.Id, supp.LinkedGroupMsg.ChatId, supp.LinkedGroupMsg.Id)
-		} else {
+		case "error":
+			log.Printf("supp %s error, current status %s, chnnel id: %d, channel msg id: %d, group id: %d, group msg id: %d\n",
+				article.Title, supp.Status, supp.ChannelMsg.ChatId, supp.ChannelMsg.Id, supp.LinkedGroupMsg.ChatId, supp.LinkedGroupMsg.Id)
+			return nil
+		case "done":
 			log.Printf("supp %s already done, skip\n", article.Title)
 			return nil
 		}

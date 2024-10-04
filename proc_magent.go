@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"main/qbit"
 	"sync"
@@ -58,7 +59,13 @@ func DownloadMagnet(hash []string) error {
 	return qClient.DownloadMagnetUrls(newHash)
 }
 
-func WaitAndProcMagnet(ctx context.Context, supp *Supp, hash string) error {
+func WaitAndProcMagnet(ctx context.Context, supp *Supp, hash string) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("supp %s, hash %s, panic: %v", supp.ArticleUrlPath, hash, r)
+			log.Println(r)
+		}
+	}()
 	countNotInTorrents := 0
 	for {
 		torrents, err := getTorrentsCached()
