@@ -12,7 +12,7 @@ func TestClient(t *testing.T) {
 	as.NotNil(c)
 	err := c.Login()
 	as.Nil(err)
-	as.NotEmpty(c.Cookie)
+	as.NotEmpty(c.cookie)
 	err = c.DownloadMagnetUrls([]string{
 		"3B1A1469C180F447B77021074DBBCCAEF62611E7",
 		"3B1A1469C180F447B77021074DBBCCAEF62611E8",

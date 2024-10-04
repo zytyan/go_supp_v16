@@ -53,25 +53,3 @@ type Torrent struct {
 	UploadedSession          int     `json:"uploaded_session"`
 	UpSpeed                  int     `json:"upspeed"`
 }
-
-const (
-	StatusError              = "error"
-	StatusMissingFiles       = "missingFiles"
-	StatusUploading          = "uploading"
-	StatusPausedUp           = "pausedUP"
-	StatusQueuedUp           = "queuedUP"
-	StatusStalledUp          = "stalledUP"
-	StatusCheckingUp         = "checkingUP"
-	StatusForcedUp           = "forcedUP"
-	StatusAllocating         = "allocating"
-	StatusDownloading        = "downloading"
-	StatusMetaDL             = "metaDL"
-	StatusPausedDL           = "pausedDL"
-	StatusQueuedDL           = "queuedDL"
-	StatusStalledDL          = "stalledDL"
-	StatusCheckingDL         = "checkingDL"
-	StatusForcedDL           = "forcedDL"
-	StatusCheckingResumeData = "checkingResumeData"
-	StatusMoving             = "moving"
-	StatusUnknown            = "unknown"
-)

@@ -27,7 +27,9 @@ type Client struct {
 	Host     string
 	Username string
 	Password string
-	Cookie   string
+	cookie   string
+
+	forbiddenCount int
 }
 
 func checkOk(r io.Reader) error {
@@ -67,13 +69,23 @@ func (c *Client) post(path string, body io.Reader, contentType string) (*http.Re
 		return nil, err
 	}
 	req.Header.Set("Content-Type", contentType)
-	if c.Cookie != "" {
-		req.Header.Set("Cookie", c.Cookie)
+	if c.cookie != "" {
+		req.Header.Set("Cookie", c.cookie)
 	}
 	resp, err := c.client.Do(req)
 	if err != nil {
 		return nil, err
 	}
+	if resp.StatusCode == 403 {
+		_ = resp.Body.Close()
+		c.forbiddenCount++
+		if c.forbiddenCount > 3 {
+			return nil, errors.New("forbidden count > 3")
+		}
+		_ = c.Login()
+		return c.post(path, body, contentType)
+	}
+	c.forbiddenCount = 0
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		_ = resp.Body.Close()
 		return nil, &StatusCodeError{
@@ -98,12 +110,21 @@ func (c *Client) get(path string) (*http.Response, error) {
 	if err != nil {
 		return nil, err
 	}
-	if c.Cookie != "" {
-		req.Header.Set("Cookie", c.Cookie)
+	if c.cookie != "" {
+		req.Header.Set("Cookie", c.cookie)
 	}
 	resp, err := c.client.Do(req)
 	if err != nil {
 		return nil, err
+	}
+	if resp.StatusCode == 403 {
+		_ = resp.Body.Close()
+		c.forbiddenCount++
+		if c.forbiddenCount > 3 {
+			return nil, errors.New("forbidden count > 3")
+		}
+		_ = c.Login()
+		return c.get(path)
 	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		_ = resp.Body.Close()
@@ -131,7 +152,13 @@ func (c *Client) Login() error {
 		"username": {c.Username},
 		"password": {c.Password},
 	}
-	resp, err := c.postForm(path, form)
+	c.cookie = ""
+	req, err := http.NewRequest("POST", c.Host+path, strings.NewReader(form.Encode()))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	resp, err := c.client.Do(req)
 	if err != nil {
 		return err
 	}
@@ -139,17 +166,29 @@ func (c *Client) Login() error {
 	if err = checkOk(resp.Body); err != nil {
 		return err
 	}
-	c.Cookie = resp.Header.Get("Set-Cookie")
+	c.cookie = resp.Header.Get("Set-Cookie")
 	return nil
 }
 
 func (c *Client) Logout() error {
 	path := "/api/v2/auth/logout"
-	resp, err := c.postEmpty(path)
+	req, err := http.NewRequest("POST", c.Host+path, nil)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Cookie", c.cookie)
+	resp, err := c.client.Do(req)
+	c.cookie = ""
 	if err != nil {
 		return err
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		return &StatusCodeError{
+			Method: "POST",
+			Code:   resp.StatusCode,
+		}
+	}
 	return nil
 }
 
