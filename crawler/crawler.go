@@ -24,6 +24,7 @@ func setHost(host string) {
 	// write liuli.link file
 	_ = os.WriteFile("liuli.link", []byte(host), 0644)
 }
+
 func getHtml(url string) ([]byte, error) {
 	resp, err := http.Get(url)
 	if err != nil {
@@ -39,6 +40,7 @@ func getHtml(url string) ([]byte, error) {
 	}
 	return buf, nil
 }
+
 func getHomePage() ([]byte, error) {
 	link := fmt.Sprintf("https://%s/wp/", getHost())
 	return getHtml(link)
@@ -95,8 +97,15 @@ func parseHomePageArticles(buf []byte) ([]Article, error) {
 	return articles, nil
 }
 
-func GetArticles() ([]Article, error) {
-	buf, err := getHomePage()
+func GetArticles(page int) ([]Article, error) {
+	var buf []byte
+	var err error
+	if page == 1 {
+		buf, err = getHomePage()
+	} else {
+		link := fmt.Sprintf("https://%s/wp/page/%d/", getHost(), page)
+		buf, err = getHtml(link)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -120,20 +129,26 @@ func (a *Article) IdTag() string {
 	return "#wp" + p[:pb]
 }
 
-func (a *Article) DownloadImg() ([]byte, error) {
+func (a *Article) DownloadImgToFile() (string, error) {
 	resp, err := http.Get(a.ImgUrl)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
-		return nil, fmt.Errorf("status code error: %d %s", resp.StatusCode, resp.Status)
+		return "", fmt.Errorf("status code error: %d %s", resp.StatusCode, resp.Status)
 	}
-	buf, err := io.ReadAll(resp.Body)
+	extName := path.Ext(a.ImgUrl)
+	f, err := os.CreateTemp("", "supp*"+extName)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
-	return buf, nil
+	defer f.Close()
+	_, err = io.Copy(f, resp.Body)
+	if err != nil {
+		return "", err
+	}
+	return f.Name(), nil
 }
 
 func (a *Article) UrlPath() string {

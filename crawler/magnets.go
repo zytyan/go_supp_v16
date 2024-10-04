@@ -25,13 +25,19 @@ func isMagnetBoundaryValid(start, end int, html string) bool {
 }
 
 func findMagnets(html string) []string {
+	uniq := make(map[string]struct{})
 	magnets := magnetRegexp.FindAllStringIndex(html, -1)
 	out := make([]string, 0, len(magnets))
 	for _, idx := range magnets {
 		if !isMagnetBoundaryValid(idx[0], idx[1], html) {
 			continue
 		}
-		out = append(out, strings.ToLower(html[idx[0]:idx[1]]))
+		hash := strings.ToLower(html[idx[0]:idx[1]])
+		if _, ok := uniq[hash]; ok {
+			continue
+		}
+		uniq[hash] = struct{}{}
+		out = append(out, hash)
 	}
 	return out
 }
