@@ -94,7 +94,7 @@ func UploadRawFiles(t *qbit.Torrent, supp *Supp) error {
 		inputMedia := make([]gotgbot.InputMedia, 0, len(fileChunk))
 		for _, f := range fileChunk {
 			log.Printf("send file to: %d, %s\n", supp.LinkedGroupMsg.ChatId, f)
-			inputMedia = append(inputMedia, gotgbot.InputMediaDocument{
+			inputMedia = append(inputMedia, &gotgbot.InputMediaDocument{
 				Media:     gotgbot.InputFileByURL(fileSchema(f)),
 				Caption:   "",
 				ParseMode: "",
