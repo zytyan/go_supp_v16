@@ -7,13 +7,15 @@ import (
 	"github.com/disintegration/imaging"
 	"image"
 	"image/color"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 )
 
 var FontFilePath = "static/NotoSans-Regular.ttf"
 
-func SecToTimeStr(sec int) string {
+func secToTimeStr(sec int) string {
 	hour := sec / 3600
 	sec = sec % 3600
 	minute := sec / 60
@@ -21,7 +23,7 @@ func SecToTimeStr(sec int) string {
 	return fmt.Sprintf("%02d:%02d:%02d", hour, minute, sec)
 }
 
-func TimeStrToSec(time string) int {
+func timeStrToSec(time string) int {
 	var hour, minute, sec int
 	_, err := fmt.Sscanf(time, "%d:%d:%d", &hour, &minute, &sec)
 	if err != nil {
@@ -36,7 +38,7 @@ func escapeFfmpegCmd(s string) string {
 }
 
 func GetScreenshotAtSec(videoPath string, sec int) ([]byte, error) {
-	time := SecToTimeStr(sec)
+	time := secToTimeStr(sec)
 	videoFilter := fmt.Sprintf(
 		`drawtext=text='%s':fontfile='%s':fontcolor=white:fontsize=h/8:x=10:y=10:box=1:boxcolor=black@0.6:boxborderw=5`,
 		escapeFfmpegCmd(time), FontFilePath)
@@ -99,10 +101,10 @@ func MakeScreenShotTile(videoPath string, tileWidth, tileHeight int) ([]byte, er
 		return nil, err
 	}
 	count := tileWidth * tileHeight
-	// 不截图前后 5% 的时间，避免首帧和尾帧可能的黑屏
+	// 不截图前后 2% 的时间，避免首帧和尾帧可能的黑屏
 	durF := float64(duration)
-	duration = int(durF * 0.9)
-	offset := int(durF * 0.05)
+	duration = int(durF * 0.98)
+	offset := int(durF * 0.02)
 	screenshot, err := GetScreenshotAtSec(videoPath, offset)
 	if err != nil {
 		return nil, err
@@ -141,4 +143,48 @@ func MakeScreenShotTile(videoPath string, tileWidth, tileHeight int) ([]byte, er
 		return nil, err
 	}
 	return buf.Bytes(), nil
+}
+
+func MakeScreenShotTileFile(videoPath string, tileWidth, tileHeight int) (string, error) {
+	buf, err := MakeScreenShotTile(videoPath, tileWidth, tileHeight)
+	if err != nil {
+		return "", err
+	}
+	f, err := os.CreateTemp("", "screenshot*.jpg")
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+	_, err = f.Write(buf)
+	if err != nil {
+		return "", err
+	}
+	return filepath.Abs(f.Name())
+}
+
+func GetSize(videoPath string) (int64, int64, error) {
+	cmd := exec.Command("ffprobe",
+		"-v", "error",
+		"-show_entries", "stream=width,height",
+		"-of", "default=noprint_wrappers=1:nokey=1",
+		videoPath,
+	)
+	stdout := bytes.NewBuffer(nil)
+	stderr := bytes.NewBuffer(nil)
+	cmd.Stdout = stdout
+	cmd.Stderr = stderr
+	err := cmd.Run()
+	if err != nil {
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
+			exitErr.Stderr = stderr.Bytes()
+		}
+		return 0, 0, err
+	}
+	var width, height int64
+	_, err = fmt.Fscanf(stdout, "%d\n%d", &width, &height)
+	if err != nil {
+		return 0, 0, err
+	}
+	return width, height, nil
 }

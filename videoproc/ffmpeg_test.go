@@ -11,7 +11,7 @@ const videoPath = `testdata/test.mp4`
 func TestGetScreenshotAtTime(t *testing.T) {
 	as := assert.New(t)
 	const time = "00:00:11"
-	buf, err := GetScreenshotAtSec(videoPath, TimeStrToSec(time))
+	buf, err := GetScreenshotAtSec(videoPath, timeStrToSec(time))
 	as.Nil(err)
 	as.NotEmpty(buf)
 	as.Equal(buf[:2], []byte{0xff, 0xd8}) // JPEG magic number
@@ -39,4 +39,12 @@ func TestMakeScreenShotTile(t *testing.T) {
 func TestMain(m *testing.M) {
 	FontFilePath = `../static/NotoSans-Regular.ttf`
 	os.Exit(m.Run())
+}
+
+func TestGetSize(t *testing.T) {
+	as := assert.New(t)
+	w, h, err := GetSize(videoPath)
+	as.Nil(err)
+	as.Equal(w, 1920)
+	as.Equal(h, 1080)
 }
