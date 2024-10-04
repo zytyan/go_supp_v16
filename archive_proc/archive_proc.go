@@ -20,18 +20,7 @@ func ListArchive(path string) ([]string, error) {
 }
 
 func UnpackArchive(path, dest string) error {
-	cmd := exec.Command("lsar", "-x", path, dest)
-	err := cmd.Run()
-	return err
-}
-
-func PackFilesToRar(files []string, destPath, filename string) error {
-	dest := filepath.Join(destPath, filename)
-	cmd := exec.Command(
-		"rar", "a", "-v2147483648b",
-		"-m0", "-r", "-y",
-		dest)
-	cmd.Args = append(cmd.Args, files...)
+	cmd := exec.Command("unar", path, dest)
 	err := cmd.Run()
 	return err
 }
@@ -39,9 +28,8 @@ func PackFilesToRar(files []string, destPath, filename string) error {
 func PackToRar(path, destPath, filename string) error {
 	dest := filepath.Join(destPath, filename)
 	cmd := exec.Command(
-		"rar", "a", "-v2147483648b",
+		"rar", "a", "-v2000000000b",
 		"-m0", "-r", "-y",
-
 		dest, path)
 	err := cmd.Run()
 	return err
