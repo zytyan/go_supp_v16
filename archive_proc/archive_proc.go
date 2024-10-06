@@ -29,6 +29,7 @@ func PackToRar(path, destPath, filename string) error {
 	dest := filepath.Join(destPath, filename)
 	cmd := exec.Command(
 		"rar", "a", "-v2000000000b",
+		"-ep1",
 		"-m0", "-r", "-y",
 		dest, path)
 	err := cmd.Run()
