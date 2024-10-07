@@ -2,9 +2,11 @@ package videoproc
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"github.com/disintegration/imaging"
+	"gopkg.in/vansante/go-ffprobe.v2"
 	"image"
 	"image/color"
 	"os"
@@ -68,43 +70,16 @@ func GetScreenshotAtSec(videoPath string, sec int) ([]byte, error) {
 	return stdout.Bytes(), nil
 }
 
-func GetDuration(videoPath string) (int, error) {
-	cmd := exec.Command("ffprobe",
-		"-v", "error",
-		"-show_entries", "format=duration",
-		"-of", "default=noprint_wrappers=1:nokey=1",
-		videoPath,
-	)
-	stdout := bytes.NewBuffer(nil)
-	stderr := bytes.NewBuffer(nil)
-	cmd.Stdout = stdout
-	cmd.Stderr = stderr
-	err := cmd.Run()
-	if err != nil {
-		var exitErr *exec.ExitError
-		if errors.As(err, &exitErr) {
-			exitErr.Stderr = stderr.Bytes()
-		}
-		return 0, err
-	}
-	var duration int
-	_, err = fmt.Fscanf(stdout, "%d", &duration)
-	if err != nil {
-		return 0, err
-	}
-	return duration, nil
-}
-
 func MakeScreenShotTile(videoPath string, tileWidth, tileHeight int) ([]byte, error) {
-	duration, err := GetDuration(videoPath)
+	probe, err := ffprobe.ProbeURL(context.Background(), videoPath)
 	if err != nil {
 		return nil, err
 	}
+	totalDur := probe.Format.DurationSeconds
 	count := tileWidth * tileHeight
 	// 不截图前后 2% 的时间，避免首帧和尾帧可能的黑屏
-	durF := float64(duration)
-	duration = int(durF * 0.98)
-	offset := int(durF * 0.02)
+	shotDur := int(totalDur * 0.96)
+	offset := int(totalDur * 0.02)
 	screenshot, err := GetScreenshotAtSec(videoPath, offset)
 	if err != nil {
 		return nil, err
@@ -118,7 +93,7 @@ func MakeScreenShotTile(videoPath string, tileWidth, tileHeight int) ([]byte, er
 	//draw img to canvas
 	canvas = imaging.Paste(canvas, img, image.Pt(0, 0))
 	for i := 1; i < count; i++ {
-		sec := offset + i*duration/count
+		sec := offset + i*shotDur/count
 		screenshot, err = GetScreenshotAtSec(videoPath, sec)
 		if err != nil {
 			return nil, err
@@ -160,31 +135,4 @@ func MakeScreenShotTileFile(videoPath string, tileWidth, tileHeight int) (string
 		return "", err
 	}
 	return filepath.Abs(f.Name())
-}
-
-func GetSize(videoPath string) (int64, int64, error) {
-	cmd := exec.Command("ffprobe",
-		"-v", "error",
-		"-show_entries", "stream=width,height",
-		"-of", "default=noprint_wrappers=1:nokey=1",
-		videoPath,
-	)
-	stdout := bytes.NewBuffer(nil)
-	stderr := bytes.NewBuffer(nil)
-	cmd.Stdout = stdout
-	cmd.Stderr = stderr
-	err := cmd.Run()
-	if err != nil {
-		var exitErr *exec.ExitError
-		if errors.As(err, &exitErr) {
-			exitErr.Stderr = stderr.Bytes()
-		}
-		return 0, 0, err
-	}
-	var width, height int64
-	_, err = fmt.Fscanf(stdout, "%d\n%d", &width, &height)
-	if err != nil {
-		return 0, 0, err
-	}
-	return width, height, nil
 }

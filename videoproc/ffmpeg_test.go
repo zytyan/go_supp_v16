@@ -1,7 +1,9 @@
 package videoproc
 
 import (
+	"context"
 	"github.com/stretchr/testify/assert"
+	"gopkg.in/vansante/go-ffprobe.v2"
 	"os"
 	"testing"
 )
@@ -16,13 +18,6 @@ func TestGetScreenshotAtTime(t *testing.T) {
 	as.NotEmpty(buf)
 	as.Equal(buf[:2], []byte{0xff, 0xd8}) // JPEG magic number
 	as.Equal(buf[len(buf)-2:], []byte{0xff, 0xd9})
-}
-
-func TestGetDuration(t *testing.T) {
-	as := assert.New(t)
-	duration, err := GetDuration(videoPath)
-	as.Nil(err)
-	as.Equal(duration, 25)
 }
 
 func TestMakeScreenShotTile(t *testing.T) {
@@ -41,10 +36,19 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-func TestGetSize(t *testing.T) {
+func TestProbe(t *testing.T) {
 	as := assert.New(t)
-	w, h, err := GetSize(videoPath)
+	probe, err := ffprobe.ProbeURL(context.Background(), videoPath)
 	as.Nil(err)
-	as.Equal(w, 1920)
-	as.Equal(h, 1080)
+	as.NotNil(probe)
+	as.NotEmpty(probe.Format)
+	as.NotEmpty(probe.Format.DurationSeconds)
+	as.NotNil(probe.FirstVideoStream())
+	v := probe.FirstVideoStream()
+	as.Equal("25.358333", v.Duration)
+	as.Equal("h264", v.CodecName)
+	as.Equal(1920, v.Width)
+	as.Equal(1080, v.Height)
+	as.Equal("yuv420p", v.PixFmt)
+
 }

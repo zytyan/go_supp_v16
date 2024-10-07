@@ -1,9 +1,11 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"github.com/PaulSonOfLars/gotgbot/v2"
 	"github.com/disintegration/imaging"
+	"gopkg.in/vansante/go-ffprobe.v2"
 	"html"
 	"log"
 	"main/helper"
@@ -45,20 +47,42 @@ func tgThumbnail(imgFile string) (string, error) {
 	return fileSchema(thumbFile), nil
 }
 
+func getVideoTechSpecs(probe *ffprobe.ProbeData) string {
+	v := probe.FirstVideoStream()
+	if v == nil {
+		return "无法获取视频信息"
+	}
+	var audio string
+	a := probe.FirstAudioStream()
+
+	if a != nil {
+		audio = fmt.Sprintf("音频编码: %s", a.CodecName)
+	} else {
+		audio = "无音频"
+	}
+	return fmt.Sprintf("视频编码: %s\n分辨率: %dx%d\n帧率: %s\n%s", v.CodecName, v.Width, v.Height, v.AvgFrameRate, audio)
+}
+
 func uploadOneVideo(video string, supp *Supp) error {
 	log.Printf("send video to: %d, %s\n", config.VideoChannelId, video)
 	thumbnail, err := videoproc.MakeScreenShotTileFile(video, 3, 3)
+	var thumbnailFile *gotgbot.FileReader
 	if err != nil {
 		thumbnail = ""
 		log.Println(err)
 	} else {
 		defer os.Remove(thumbnail)
+		t, err := tgThumbnail(thumbnail)
+		if err == nil {
+			thumbnailFile = gotgbot.InputFileByURL(t).(*gotgbot.FileReader)
+		}
 	}
-	w, h, err1 := videoproc.GetSize(video)
-	dur, err2 := videoproc.GetDuration(video)
-	if err1 != nil || err2 != nil {
-		log.Printf("get video %s size or duration failed, err1: %s, err2: %s\n", video, err1, err2)
+	probe, err := ffprobe.ProbeURL(context.Background(), video)
+	if err != nil {
+		log.Printf("ffprobe %s failed: %s\n", video, err)
+		return err
 	}
+	v := probe.FirstVideoStream()
 	coverFile := gotgbot.InputFileByURL(fileSchema(thumbnail))
 	log.Printf("send video %s to: %d\n", video, config.VideoChannelId)
 	groupMsg, err := bot.SendPhoto(supp.LinkedGroupMsg.ChatId, coverFile, &gotgbot.SendPhotoOpts{
@@ -81,22 +105,14 @@ func uploadOneVideo(video string, supp *Supp) error {
 	if groupMsg != nil {
 		groupId, groupMsgId = groupMsg.Chat.Id, groupMsg.MessageId
 	}
-	var thumbnailFile *gotgbot.FileReader
-	if thumbnail != "" {
-		defer os.Remove(thumbnail)
-		t, err := tgThumbnail(thumbnail)
-		if err == nil {
-			thumbnailFile = gotgbot.InputFileByURL(t).(*gotgbot.FileReader)
-		}
-	}
 	videoMsg, err := bot.SendVideo(config.VideoChannelId, gotgbot.InputFileByURL(fileSchema(video)), &gotgbot.SendVideoOpts{
-		Caption:           filepath.Base(video),
+		Caption:           filepath.Base(video) + "\n" + getVideoTechSpecs(probe),
 		ParseMode:         "",
 		Thumbnail:         thumbnailFile,
 		HasSpoiler:        true,
-		Width:             w,
-		Height:            h,
-		Duration:          int64(dur),
+		Width:             int64(v.Width),
+		Height:            int64(v.Height),
+		Duration:          int64(probe.Format.DurationSeconds),
 		SupportsStreaming: true,
 		ReplyParameters: &gotgbot.ReplyParameters{
 			MessageId:                groupMsgId,
@@ -109,6 +125,7 @@ func uploadOneVideo(video string, supp *Supp) error {
 		},
 	})
 	if err != nil {
+		var err2 error
 		if groupMsg != nil {
 			_, _, err2 = groupMsg.EditCaption(bot, &gotgbot.EditMessageCaptionOpts{
 				Caption:   "视频上传失败",
