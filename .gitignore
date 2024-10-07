@@ -3,3 +3,5 @@
 /build
 /config/*
 !/config/config-template.toml
+/*.db
+/*.service
