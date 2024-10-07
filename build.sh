@@ -35,11 +35,13 @@ check_yes() {
     *) return 1 ;;
     esac
 }
-
-compile_and_restart() {
+build() {
     go get
     go build -o "$BIN_NAME"
     echo "Compile done at" "$(date '+%Y-%m-%d %H:%M:%S')"
+}
+compile_and_restart() {
+    build
     # 检查是否传入了 -y 参数
     if check_yes "是否重启服务 [y/N] " "yY"; then
         sudo systemctl daemon-reload
@@ -51,6 +53,7 @@ install() {
     if ! check_commands "go" "systemctl" "sed" "ffmpeg" "ffprobe" "rar"; then
         return 1
     fi
+    build
     cp "$FILE_DIR/$BIN_NAME.service.temp" "$FILE_DIR/$BIN_NAME.service"
     sudo sed -i "s|VAR_CUR_PATH|$FILE_DIR|g" "$FILE_DIR/$BIN_NAME.service"
     sudo sed -i "s|VAR_TMP_DIR|$TMP_DIR|g" "$FILE_DIR/$BIN_NAME.service"
