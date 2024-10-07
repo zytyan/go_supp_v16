@@ -1,0 +1,20 @@
+# 给自己留：希望那天又挂了的时候，可以用这个东西快速恢复
+# 在这里填入BotFather处获取的token
+bot-token = "1234567890:AbCdefGhIJKlmnOpQrStUvWxYz"
+# 这里是Telegram本地服务器的地址，因为要上传很大的文件，所以必须要本地服务器才能做到
+base-url = "http://localhost:port" # 例如 http://localhost:8080
+channel-id = -100123456789
+group-id = -100987654321
+video-channel-id = -100314159265
+video-group-id = 0
+admin-id = 2718281828
+tph-access-token = "" # 这里原来是给telegra.ph使用的，现在因为不能上传图片了，暂且搁置
+database = "data.db" # 数据库名称，不用动
+
+[qbit]
+# 很显然，这里是qBittorrent的地址
+host = "http://localhost:8080"
+# qBittorrent的用户名，如果是新安装的，不管是原版还是Enhanced版，都是admin
+username = "username"
+# qBittorrent的密码，原版是adminadmin，Enhanced版需要用 journalctl -u qbittorrent-enhanced-nox.service 查看
+password = "password"
